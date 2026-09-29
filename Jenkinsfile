@@ -1,0 +1,66 @@
+properties([
+    parameters([
+        string(name: 'IMAGE_TAG', defaultValue: 'worker', description: 'Тег образа для деплоя')
+    ])
+])
+
+pipeline {
+    agent {
+        kubernetes {
+            inheritFrom 'jenkins-agent'
+            defaultContainer 'kubectl'
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  serviceAccountName: jenkins
+  containers:
+  - name: kubectl
+    image: lachlanevenson/k8s-kubectl:v1.25.0
+    command:
+    - sleep
+    args:
+    - infinity
+'''
+        }
+    }
+    stages {
+        stage('Deploy and Test') {
+            steps {
+                script {
+                    try {
+                        sh '''
+                            curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz
+                            tar -xzf helm.tar.gz
+                            export PATH=$PWD/linux-amd64:$PATH
+                            helm upgrade --install app-6-10 ./helm-charts/my-app-chart \
+                              --set image.repository=app-6-10 \
+                              --set image.tag=${IMAGE_TAG}
+                        '''
+                        
+                        // Smoke Test
+                        sh '''
+                            kubectl rollout status deployment/app-6-10 --timeout=60s
+                            kubectl port-forward deploy/app-6-10 8081:8081 &
+                            sleep 5
+                            curl -f http://localhost:8081 || exit 1
+                            kill %1
+                        '''
+                        
+                        echo 'Deploy and Smoke Test passed'
+                    } catch (Exception e) {
+                        echo "Deploy or Smoke Test failed: ${e.message}"
+                        echo 'Rolling back...'
+                        sh '''
+                            curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz
+                            tar -xzf helm.tar.gz
+                            export PATH=$PWD/linux-amd64:$PATH
+                            helm rollback app-6-10
+                        '''
+                        throw e
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: app-6-10-chart
+description: Helm chart for app-6-10
+type: application
+version: 0.1.0
+appVersion: "1.0"
