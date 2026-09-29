@@ -33,7 +33,7 @@ spec:
                             curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz
                             tar -xzf helm.tar.gz
                             export PATH=$PWD/linux-amd64:$PATH
-                            helm upgrade --install app-6-10 ./helm-charts/my-app-chart \
+                            helm upgrade --install app-6-10 ./helm-charts/app-6-10-chart \
                               --set image.repository=app-6-10 \
                               --set image.tag=${IMAGE_TAG}
                         '''
