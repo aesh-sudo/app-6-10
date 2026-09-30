@@ -1,9 +1,3 @@
-properties([
-    parameters([
-        string(name: 'IMAGE_TAG', defaultValue: 'worker', description: 'Тег образа для деплоя')
-    ])
-])
-
 pipeline {
     agent {
         kubernetes {
@@ -23,6 +17,9 @@ spec:
     - infinity
 '''
         }
+    }
+    parameters {
+        string(name: 'IMAGE_TAG', defaultValue: 'worker', description: 'Тег образа для деплоя')
     }
     stages {
         stage('Deploy and Test') {
@@ -50,13 +47,17 @@ spec:
                         echo 'Deploy and Smoke Test passed'
                     } catch (Exception e) {
                         echo "Deploy or Smoke Test failed: ${e.message}"
-                        echo 'Rolling back...'
-                        sh '''
-                            curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz
-                            tar -xzf helm.tar.gz
-                            export PATH=$PWD/linux-amd64:$PATH
-                            helm rollback app-6-10
-                        '''
+                        echo 'Attempting rollback...'
+                        try {
+                            sh '''
+                                curl -fsSL -o helm.tar.gz https://get.helm.sh/helm-v3.14.3-linux-amd64.tar.gz
+                                tar -xzf helm.tar.gz
+                                export PATH=$PWD/linux-amd64:$PATH
+                                helm rollback app-6-10
+                            '''
+                        } catch (Exception rollbackError) {
+                            echo "Rollback не выполнен (нечего отатывать): ${rollbackError.message}"
+                        }
                         throw e
                     }
                 }
